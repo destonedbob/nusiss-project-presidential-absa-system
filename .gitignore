@@ -1,1 +1,10 @@
-reddit.env
+myVenv/
+scraper/__pycache__/
+utilities/__pycache__/
+preprocessor/__pycache__/
+model/__pycache__/
+model/aspect_model_seq2seq_facebooklargebart_lr5e-5_epochs5_w_additional_val_acc_4683
+model/multilabel_entity_distil_bert_7epochs_lr5e-5_d&c_dataset
+model/sentiment_model_lr3e-5_epochs5_features_in_text_val_acc_6771
+model/multilabel_aspect_distil_4epochs_lr3e-5_without_test_set_split_keep_same_sent_together.pth
+model/sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_1e-4_epochs4_256_256_256_256_smoothed_weight_warmup_and_reducelr_freeze4layers.pth
