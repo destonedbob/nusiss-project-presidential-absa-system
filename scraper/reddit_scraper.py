@@ -1,8 +1,5 @@
-# !pip install python-dotenv
-# !pip install praw
-
 from transformers import pipeline
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 import os
 import praw
 import datetime
@@ -16,7 +13,6 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 APP_ID = os.getenv('APP_ID')
 USERNAME = os.getenv('REDDIT_USERNAME')
 USER_AGENT = f'{APP_NAME} by u/{USERNAME}'
-print(USER_AGENT)
 
 def get_reddit_object(client_id=APP_ID, client_secret=SECRET_KEY, user_agent=USER_AGENT, user_name=USERNAME):
     reddit = praw.Reddit(
@@ -46,7 +42,7 @@ def get_trump_reddit_posts_and_comments(reddit, qa_obj, save_dir, max_posts_to_c
 
     for post in posts:
         
-        if num_collected_posts > max_posts_to_collect:
+        if num_collected_posts >= max_posts_to_collect:
             break 
 
         answers = qa_obj(
@@ -112,7 +108,7 @@ def get_trump_reddit_posts_and_comments(reddit, qa_obj, save_dir, max_posts_to_c
 
     return post_df, comment_df
 
-def get_trump_reddit_posts_and_comments(reddit, qa_obj, save_dir, max_posts_to_collect=10):
+def get_kamala_reddit_posts_and_comments(reddit, qa_obj, save_dir, max_posts_to_collect=10):
     num_collected_posts = 0
     post_data_list = []
     comment_data_list = []
@@ -131,7 +127,7 @@ def get_trump_reddit_posts_and_comments(reddit, qa_obj, save_dir, max_posts_to_c
 
     for post in posts:
         
-        if num_collected_posts > max_posts_to_collect:
+        if num_collected_posts >= max_posts_to_collect:
             break 
 
         answers = qa_obj(
