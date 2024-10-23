@@ -82,7 +82,7 @@ def get_entity_probabilities(texts, model, tokenizer, score=False):
         logits = outputs.logits
         probabilities = torch.sigmoid(logits)
         if not score:
-            return np.array(list(map(lambda x: 1 if x > 0.5 else 0, probabilities.cpu().detach().numpy()[0].tolist())))
+            return np.array(list(map(lambda x: 1 if x > 0.65 else 0, probabilities.cpu().detach().numpy()[0].tolist())))
         else:
             return probabilities.cpu().detach().numpy()[0]
         
