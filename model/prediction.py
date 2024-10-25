@@ -13,6 +13,7 @@ SENTIMENT_MODEL_DISTIL = './model/sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_
 SENTIMENT_MODEL_SEQ2SEQ = 'destonedbob/nusiss-election-project-sentiment-seq2seq-model-facebook-bart-large'
 DISTILBERT_BASE_CASED = 'distilbert-base-cased'
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 entity_idx_map = {k:v for v, k in enumerate(['kamala', 'trump', 'others'])}
 idx_entity_map = {v:k for k, v in entity_idx_map.items()}
@@ -57,11 +58,11 @@ class AspectBasedSentimentModel(nn.Module):
         cls_embeddings = hidden_states.last_hidden_state[:, 0, :] # [batch size, hidden size]
         # concat = torch.cat((cls_embeddings, entity_cat.unsqueeze(1), aspect_cat.unsqueeze(1)), axis=1) # [batch size, hidden size+num extra dims]
         
-        entity_embed = self.entity_embedding(entity_cat.type(torch.IntTensor).to('cuda'))
-        aspect_embed = self.aspect_embedding(aspect_cat.type(torch.IntTensor).to('cuda'))
+        entity_embed = self.entity_embedding(entity_cat.type(torch.IntTensor).to(device))
+        aspect_embed = self.aspect_embedding(aspect_cat.type(torch.IntTensor).to(device))
         # print((cls_embeddings.shape, entity_embed.shape, aspect_embed.shape))
-        entity_labels_embed = self.entity_labels_embedding(entity_labels.type(torch.LongTensor).to('cuda')).view(entity_labels.shape[0], -1)  # Flatten [batch_size, 3, 50] to [batch_size, 150]
-        aspect_labels_embed = self.aspect_labels_embedding(aspect_labels.type(torch.LongTensor).to('cuda')).view(aspect_labels.shape[0], -1)  # Flatten [batch_size, 14, 50] to [batch_size, 700]
+        entity_labels_embed = self.entity_labels_embedding(entity_labels.type(torch.LongTensor).to(device)).view(entity_labels.shape[0], -1)  # Flatten [batch_size, 3, 50] to [batch_size, 150]
+        aspect_labels_embed = self.aspect_labels_embedding(aspect_labels.type(torch.LongTensor).to(device)).view(aspect_labels.shape[0], -1)  # Flatten [batch_size, 14, 50] to [batch_size, 700]
         
         # Concatenate embeddings with CLS token output
         concat = torch.cat((cls_embeddings, entity_embed, aspect_embed, entity_labels_embed, aspect_labels_embed), axis=1)
@@ -78,7 +79,7 @@ class AspectBasedSentimentModel(nn.Module):
 
 def get_entity_probabilities(texts, model, tokenizer, score=False):
         inputs = tokenizer(texts, return_tensors="pt", padding=True, truncation=True)
-        inputs.to('cuda')
+        inputs.to(device)
         outputs = model(**inputs)
         logits = outputs.logits
         probabilities = torch.sigmoid(logits)
@@ -129,11 +130,11 @@ def predict_distill_aspect_scores(model, tokenizer, dataframe, max_length=512):
         )
 
         # Extract the entity_id and prepare it as a LongTensor
-        entity_id_tensor = torch.tensor([row['entity_id']], dtype=torch.long).to('cuda')  # Shape: (1, 1)
+        entity_id_tensor = torch.tensor([row['entity_id']], dtype=torch.long).to(device)  # Shape: (1, 1)
 
         # Move tokenized inputs to the device
-        input_ids = tokenized['input_ids'].to('cuda')
-        attention_mask = tokenized['attention_mask'].to('cuda')
+        input_ids = tokenized['input_ids'].to(device)
+        attention_mask = tokenized['attention_mask'].to(device)
 
         # Perform inference
         with torch.no_grad():
@@ -167,7 +168,7 @@ def predict_bart_aspect_model(texts, model, tokenizer, batch_size=32, return_con
             
             # Tokenize the batch
             inputs = tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
-            inputs.to('cuda')  # Move to GPU
+            inputs.to(device)  # Move to GPU
 
             if return_conf:
                 with torch.no_grad():  # Disable gradient calculation
@@ -230,7 +231,7 @@ def predict_sentiment_bart_model(texts, model, tokenizer, batch_size=32, return_
 
         # Tokenize the batch
         inputs = tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True, max_length=512)
-        inputs = inputs.to('cuda')  # Move to GPU
+        inputs = inputs.to(device)  # Move to GPU
 
         if return_both:
             with torch.no_grad():  # Disable gradient calculation
@@ -278,12 +279,12 @@ def predict_sentiment_bart_model(texts, model, tokenizer, batch_size=32, return_
 def predict_sentiment_distil(row, tokenizer, model, return_conf=False, return_both=False):
         model.eval()
         inputs = tokenizer(row['sentence'], return_tensors='pt', truncation=True, padding=True, max_length=512)
-        input_ids = inputs['input_ids'].to('cuda')
-        attention_mask = inputs['attention_mask'].to('cuda')
-        entity_cat = torch.tensor([row['entity_id']]).to('cuda')
-        aspect_cat = torch.tensor([row['final_aspect_ids']]).to('cuda')
-        entity_labels = torch.tensor([row['entity_ids']]).to('cuda')
-        aspect_labels = torch.tensor([row['final_aspect_labels']]).to('cuda')
+        input_ids = inputs['input_ids'].to(device)
+        attention_mask = inputs['attention_mask'].to(device)
+        entity_cat = torch.tensor([row['entity_id']]).to(device)
+        aspect_cat = torch.tensor([row['final_aspect_ids']]).to(device)
+        entity_labels = torch.tensor([row['entity_ids']]).to(device)
+        aspect_labels = torch.tensor([row['final_aspect_labels']]).to(device)
         
         with torch.no_grad():
             logits = model(input_ids, attention_mask, entity_cat, aspect_cat, entity_labels, aspect_labels)
@@ -319,7 +320,7 @@ def predict_with_models(df):
     # Entity Extraction
     model = AutoModelForSequenceClassification.from_pretrained(ENTITY_MODEL)
     tokenizer = AutoTokenizer.from_pretrained(ENTITY_MODEL)
-    model.to('cuda')
+    model.to(device)
         
     result['entity_ids'] = result.sentence.apply(lambda x: get_entity_probabilities(x, model, tokenizer))
     df_columns = result.columns.tolist()
@@ -361,7 +362,7 @@ def predict_with_models(df):
     num_aspects = 13
 
 
-    model = MultiLabelClassifier(num_labels=num_aspects).to('cuda')
+    model = MultiLabelClassifier(num_labels=num_aspects).to(device)
     model.load_state_dict(torch.load(ASPECT_MODEL_DISTIL))
 
     result = predict_distill_aspect_scores(model, tokenizer, result)
@@ -373,7 +374,7 @@ def predict_with_models(df):
     result['sentence2'] = result.apply(lambda row: 'entity of interest: ' + row['entity_category'].replace('others', 'neither trump nor kamala') + ' [SEP] ' + row['sentence'], axis=1)
     tokenizer = AutoTokenizer.from_pretrained(ASPECT_MODEL_SEQ2SEQ)
     model = AutoModelForSeq2SeqLM.from_pretrained(ASPECT_MODEL_SEQ2SEQ)
-    model.to('cuda')
+    model.to(device)
     
     mask = result['distil_aspect_categories'].apply(lambda x: x == ['others'])
 
@@ -402,9 +403,9 @@ def predict_with_models(df):
 
     tokenizer = AutoTokenizer.from_pretrained(DISTILBERT_BASE_CASED)
     # torch.save(model, 'sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_1e-4_epochs4_256_256_256_256_warmup_and_reducelr.pth')
-    model = AspectBasedSentimentModel()
-    model.load_state_dict(torch.load(SENTIMENT_MODEL_DISTIL))
-    model.to('cuda')
+        
+    model = torch.load(SENTIMENT_MODEL_DISTIL)
+    model.to(device)
 
     result['distil_sentiment_prediction_and_confidence_score'] = result.apply(lambda x: predict_sentiment_distil(x, tokenizer, model, return_both=True), axis=1)
     result['distil_sentiment_prediction'] = result['distil_sentiment_prediction_and_confidence_score'].apply(lambda x: x[0])
@@ -415,7 +416,7 @@ def predict_with_models(df):
 
     tokenizer = AutoTokenizer.from_pretrained(SENTIMENT_MODEL_SEQ2SEQ)
     model = BartForConditionalGeneration.from_pretrained(SENTIMENT_MODEL_SEQ2SEQ)
-    model.to('cuda')
+    model.to(device)
 
     texts_to_predict = result.sentence3.tolist()
     if texts_to_predict:
