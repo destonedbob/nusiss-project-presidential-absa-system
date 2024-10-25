@@ -12,7 +12,7 @@ The pipeline:
    coreference resolution for entities.
 4) Uses pre-trained model to do subjectivity classification and remove objective sentences.
 5) Tokenize comments into sentences.
-6) Use 5 fine tune models to extract entity, aspect related to entity, and sentiment related to aspect.
+6) Use 5 fine tuned models to extract entity, aspect related to entity, and sentiment related to aspect.
 
 Running of this code will require the follow to work fully:
 
@@ -22,6 +22,10 @@ Running of this code will require the follow to work fully:
    * [sentiment seq2seq model](https://huggingface.co/destonedbob/nusiss-election-project-sentiment-seq2seq-model-facebook-bart-large)
    * Other two models are uploaded here in `./model/`
 2) Credentials for Reddit and Youtube to be defined in `credentials/reddit.env` for use by respective APIs. Please see the relevant documentations
+
+You may use main.ipynb to do the above. If you do not wish to scrape data, you may create a custom dataframe with sentences in the `Inference` section to test the model.
+
+Note: this code has only been tested on a single windows system with a cuda GPU.
 
 ## Windows install
 
