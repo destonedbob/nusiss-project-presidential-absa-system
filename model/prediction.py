@@ -385,8 +385,12 @@ def predict_with_models(df):
         predicted_aspect_lists = predict_bart_aspect_model(texts_to_predict, model, tokenizer, batch_size=32, return_aspect_list=True)
         # Assign the predictions back to the relevant rows using .loc
         result.loc[mask, 'bart_aspect_labels'] = pd.Series(predicted_aspect_lists, index=result[mask].index)
-        
-    result['bart_aspect_categories'] = result['bart_aspect_labels'].apply(lambda x: get_aspect_category_bart(x, idx_aspect_map))
+
+        result['bart_aspect_categories'] = result['bart_aspect_labels'].apply(lambda x: get_aspect_category_bart(x, idx_aspect_map))
+    else:
+        result['bart_aspect_categories'] = result['distil_aspect_categories']
+        result['bart_aspect_labels'] = result['distil_aspect_labels'].apply(lambda x: [int(each) for each in x] + [1] if sum(x) == 0 else [int(each) for each in x] + [0])
+
     result['final_aspect_categories'] = result['bart_aspect_categories'].fillna(result['distil_aspect_categories'])
     result['final_aspect_labels'] = result['bart_aspect_labels'].fillna(result['distil_aspect_labels'].apply(lambda x: [int(each) for each in x] + [1] if sum(x) == 0 else [int(each) for each in x] + [0]))
     result = result.explode('final_aspect_categories').reset_index(drop=True)
@@ -398,8 +402,8 @@ def predict_with_models(df):
 
     tokenizer = AutoTokenizer.from_pretrained(DISTILBERT_BASE_CASED)
     # torch.save(model, 'sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_1e-4_epochs4_256_256_256_256_warmup_and_reducelr.pth')
-        
-    model = torch.load(SENTIMENT_MODEL_DISTIL)
+    model = AspectBasedSentimentModel()
+    model.load_state_dict(torch.load(SENTIMENT_MODEL_DISTIL))
     model.to('cuda')
 
     result['distil_sentiment_prediction_and_confidence_score'] = result.apply(lambda x: predict_sentiment_distil(x, tokenizer, model, return_both=True), axis=1)
