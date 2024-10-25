@@ -17,7 +17,11 @@ The pipeline:
 Running of this code will require the follow to work fully:
 
 1) Download of 5 finetuned model and placing them into `model` folder.
-2) Credentials for Reddit and Youtube to be defined in `credentials/reddit.env` for use by respective APIs
+   * [entity model](https://huggingface.co/destonedbob/nusiss-election-project-entity-model-distilbert-base-cased)
+   * [aspect seq2seq model](https://huggingface.co/destonedbob/nusiss-election-project-aspect-seq2seq-model-facebook-bart-large)
+   * [sentiment seq2seq model](https://huggingface.co/destonedbob/nusiss-election-project-sentiment-seq2seq-model-facebook-bart-large)
+   * Other two models are uploaded here in `./model/`
+2) Credentials for Reddit and Youtube to be defined in `credentials/reddit.env` for use by respective APIs. Please see the relevant documentations
 
 ## Windows install
 
