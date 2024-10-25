@@ -6,11 +6,12 @@ from torch import nn
 import pandas as pd
 import numpy as np
 
-ENTITY_MODEL = './model/multilabel_entity_distil_bert_7epochs_lr5e-5_d&c_dataset'
-ASPECT_MODEL_1 = './model/multilabel_aspect_distil_4epochs_lr3e-5_without_test_set_split_keep_same_sent_together.pth'
-ASPECT_MODEL_2 = './model/aspect_model_seq2seq_facebooklargebart_lr5e-5_epochs5_w_additional_val_acc_4683'
-SENTIMENT_MODEL_1 = './model/sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_1e-4_epochs4_256_256_256_256_smoothed_weight_warmup_and_reducelr_freeze4layers.pth'
-SENTIMENT_MODEL_2 = './model/sentiment_model_lr3e-5_epochs5_features_in_text_val_acc_6771'
+ENTITY_MODEL = 'destonedbob/nusiss-election-project-entity-model-distilbert-base-cased'
+ASPECT_MODEL_DISTIL = './model/multilabel_aspect_distil_4epochs_lr3e-5_without_test_set_split_keep_same_sent_together.pth'
+ASPECT_MODEL_SEQ2SEQ = 'destonedbob/nusiss-election-project-aspect-seq2seq-model-facebook-bart-large'
+SENTIMENT_MODEL_DISTIL = './model/sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_1e-4_epochs4_256_256_256_256_smoothed_weight_warmup_and_reducelr_freeze4layers.pth'
+SENTIMENT_MODEL_SEQ2SEQ = 'destonedbob/nusiss-election-project-sentiment-seq2seq-model-facebook-bart-large'
+DISTILBERT_BASE_CASED = 'distilbert-base-cased'
 
 
 entity_idx_map = {k:v for v, k in enumerate(['kamala', 'trump', 'others'])}
@@ -316,9 +317,8 @@ def predict_with_models(df):
     original_columns = result.columns.tolist()
 
     # Entity Extraction
-    model_name = "distilbert-base-cased"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(ENTITY_MODEL)
+    tokenizer = AutoTokenizer.from_pretrained(ENTITY_MODEL)
     model.to('cuda')
         
     result['entity_ids'] = result.sentence.apply(lambda x: get_entity_probabilities(x, model, tokenizer))
@@ -344,7 +344,7 @@ def predict_with_models(df):
                 dict_row['entity_id'] = entity_idx_map['trump']
             expanded_rows.append(dict_row)
 
-        if entity_labels[2] == 1:
+        if entity_labels[2] == 1 or sum(entity_labels) == 0:
             dict_row = dict()
             for col in result.columns:
                 dict_row[col] = row[col]
@@ -357,13 +357,12 @@ def predict_with_models(df):
     result = result[df_columns + ['entity_category', 'entity_id']]
 
     # Aspect Extraction (Model 1)
-    model_name = 'distilbert-base-cased'
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(DISTILBERT_BASE_CASED)
     num_aspects = 13
 
 
     model = MultiLabelClassifier(num_labels=num_aspects).to('cuda')
-    model.load_state_dict(torch.load(ASPECT_MODEL_1))
+    model.load_state_dict(torch.load(ASPECT_MODEL_DISTIL))
 
     result = predict_distill_aspect_scores(model, tokenizer, result)
     result['distil_aspect_labels'] = result.distil_aspect_scores.apply(lambda x: np.where(np.array(x) >= 0.35, 1.0, 0.0)) # Returns list of length 13, if all 0 then its others.
@@ -372,9 +371,8 @@ def predict_with_models(df):
 
     # Aspect Extraction (Model 2)
     result['sentence2'] = result.apply(lambda row: 'entity of interest: ' + row['entity_category'].replace('others', 'neither trump nor kamala') + ' [SEP] ' + row['sentence'], axis=1)
-    model_name = "facebook/bart-large" 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(ASPECT_MODEL_2)
+    tokenizer = AutoTokenizer.from_pretrained(ASPECT_MODEL_SEQ2SEQ)
+    model = AutoModelForSeq2SeqLM.from_pretrained(ASPECT_MODEL_SEQ2SEQ)
     model.to('cuda')
     
     mask = result['distil_aspect_categories'].apply(lambda x: x == ['others'])
@@ -398,11 +396,10 @@ def predict_with_models(df):
     # Sentiment Prediction (Model 1)
     result['final_aspect_ids'] = result['final_aspect_categories'].apply(lambda x: aspect_idx_map[x])
 
-    model_name = "distilbert-base-cased"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(DISTILBERT_BASE_CASED)
     # torch.save(model, 'sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_1e-4_epochs4_256_256_256_256_warmup_and_reducelr.pth')
         
-    model = torch.load('./model/sentiment_model_val_acc_6162_lr4.5e-5_wtdecay_1e-4_epochs4_256_256_256_256_smoothed_weight_warmup_and_reducelr_freeze4layers.pth')
+    model = torch.load(SENTIMENT_MODEL_DISTIL)
     model.to('cuda')
 
     result['distil_sentiment_prediction_and_confidence_score'] = result.apply(lambda x: predict_sentiment_distil(x, tokenizer, model, return_both=True), axis=1)
@@ -412,9 +409,8 @@ def predict_with_models(df):
     # Sentiment Prediction (Model 2)
     result['sentence3'] = result.apply(create_sentence_for_sentiment_seq2seq, axis=1)
 
-    model_name = "facebook/bart-large" 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = BartForConditionalGeneration.from_pretrained(SENTIMENT_MODEL_2)
+    tokenizer = AutoTokenizer.from_pretrained(SENTIMENT_MODEL_SEQ2SEQ)
+    model = BartForConditionalGeneration.from_pretrained(SENTIMENT_MODEL_SEQ2SEQ)
     model.to('cuda')
 
     texts_to_predict = result.sentence3.tolist()
