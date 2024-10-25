@@ -27,6 +27,8 @@ You may use main.ipynb to do the above. If you do not wish to scrape data, you m
 
 Note: this code has only been tested on a single windows system with a cuda GPU.
 
+Related Repo: [For Streamlit UI code](https://github.com/destonedbob/nusiss-project-presidential-absa-streamlit-ui)
+
 ## Windows install
 
 Create virtual environment and install requirements
